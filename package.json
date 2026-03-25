@@ -1,0 +1,91 @@
+{
+  "name": "poodol",
+  "version": "1.0.0",
+  "description": "Unofficial desktop wrapper for Facebook Messenger Web with extra features. Not affiliated with Meta.",
+  "productName": "Poodol",
+  "license": "MIT",
+  "author": "Quang Duy <dinhduy2012003@gmail.com> (https://quangduy.id.vn)",
+  "type": "commonjs",
+  "main": "build/main/main.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "dev": "concurrently \"tsc --watch\" \"electronmon build/main/main.js\"",
+    "start": "npm run build && electron .",
+    "debug": "npm run build && electron --trace-warnings .",
+    "dist": "npm run build && electron-builder",
+    "dist:mac": "npm run dist -- --mac",
+    "dist:win": "npm run dist -- --win",
+    "dist:linux": "npm run dist -- --linux",
+    "dist:all": "npm run dist -- --mac --win --linux",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "concurrently": "^8.2.2",
+    "electron": "^41.0.3",
+    "electron-builder": "^26.8.1",
+    "electronmon": "^2.0.4",
+    "typescript": "^5.3.3"
+  },
+  "build": {
+    "appId": "com.poodol.desktop",
+    "productName": "Poodol",
+    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
+    "directories": {
+      "buildResources": "assets"
+    },
+    "files": [
+      "build/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "mac": {
+      "icon": "assets/icons/icon.icns",
+      "category": "public.app-category.social-networking",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ]
+    },
+    "win": {
+      "icon": "assets/icons/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Poodol",
+      "buildUniversalInstaller": false
+    },
+    "linux": {
+      "icon": "assets/icons/icon.png",
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Network",
+      "executableName": "poodol",
+      "maintainer": "Quang Duy <dinhduy2012003@gmail.com>",
+      "synopsis": "Desktop wrapper for Facebook Messenger Web.",
+      "description": "Unofficial desktop wrapper for Facebook Messenger Web with extra features."
+    }
+  }
+}
