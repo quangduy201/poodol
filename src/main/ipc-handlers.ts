@@ -7,6 +7,10 @@ import {
   setNormalizingMainWindowUrl,
 } from "./app-context";
 import { safeLoadUrl } from "./navigation";
+import {
+  notifyNewMessage,
+  updateDockAndTaskbarBadge,
+} from "./notification-manager";
 import { URLS } from "../shared/constants";
 
 // URL normalization
@@ -61,6 +65,21 @@ export async function normalizeMainWindowMessagesUrl(
 
 // IPC handler registration
 export function setupIpcHandlers(): void {
+  ipcMain.on("host:message-preview", (_event, preview, unreadRowCount) => {
+    if (!preview || typeof preview !== "object") {
+      return;
+    }
+
+    notifyNewMessage(preview).catch((error) => {
+      console.error("Failed to notify new message:", error);
+    });
+    updateDockAndTaskbarBadge(unreadRowCount || 0);
+  });
+
+  ipcMain.on("host:unread-count", (_event, unreadRowCount) => {
+    updateDockAndTaskbarBadge(unreadRowCount || 0);
+  });
+
   ipcMain.on("host:logout-initiated", async () => {
     const mainWindow = getMainWindow();
     if (!mainWindow || mainWindow.isDestroyed()) {
