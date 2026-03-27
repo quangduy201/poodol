@@ -41,6 +41,10 @@ export const WEB_PREFERENCES = {
 export const URLS = {
   LOGIN_URL: "https://www.facebook.com/login.php",
   MESSAGES_INBOX_URL: "https://www.facebook.com/messages/e2ee/t/",
+  PROFILE_URL: "https://www.facebook.com/me",
+  GITHUB_URL: "https://github.com/quangduy201/poodol",
+  REPORT_ISSUE_URL: "https://github.com/quangduy201/poodol/issues/new",
+  MESSENGER_HELP_CENTER_URL: "https://www.facebook.com/help/messenger-app",
   ABOUT_BLANK_URL: "about:blank",
 };
 

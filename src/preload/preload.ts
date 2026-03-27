@@ -439,6 +439,76 @@ function waitForElement(
   });
 }
 
+function findSettingsButton(): Element | null {
+  const selectors = [
+    'div[role="button"][aria-controls="mw-inbox-settings-menu"]',
+    'div[role="button"][aria-controls*="settings-menu"]',
+    'div[role="button"][aria-haspopup="menu"][aria-controls]',
+  ];
+
+  for (const selector of selectors) {
+    const elements = Array.from(document.querySelectorAll(selector));
+    const visible = elements.find(
+      (element) => (element as HTMLElement).offsetParent !== null,
+    );
+    if (visible) {
+      return visible;
+    }
+    if (elements[0]) {
+      return elements[0];
+    }
+  }
+
+  return null;
+}
+
+function getSettingsMenuRoot(): Element | null {
+  return (
+    document.querySelector("#mw-inbox-settings-menu") ||
+    document.querySelector('[role="menu"][id*="settings-menu"]')
+  );
+}
+
+function findPreferencesMenuItem(): Element | null {
+  const menuRoot = getSettingsMenuRoot();
+  if (!menuRoot) {
+    return null;
+  }
+
+  const menuItems = Array.from(menuRoot.querySelectorAll('[role="menuitem"]'));
+  if (menuItems.length === 0) {
+    return null;
+  }
+
+  const firstSeparator = menuRoot.querySelector('[role="separator"]');
+  if (!firstSeparator) {
+    return menuItems[0] || null;
+  }
+
+  return (
+    menuItems.find((item) =>
+      Boolean(
+        firstSeparator.compareDocumentPosition(item) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+      ),
+    ) ||
+    menuItems[0] ||
+    null
+  );
+}
+
+function findHelpMenuItem(): Element | null {
+  const menuRoot = getSettingsMenuRoot();
+  if (!menuRoot) {
+    return null;
+  }
+
+  return (
+    menuRoot.querySelector('a[role="menuitem"][href="/help/messenger-app/"]') ||
+    null
+  );
+}
+
 function findProfileMenuButton(): Element | null {
   const navigation = document.querySelector('div[role="navigation"].x6s0dn4');
   if (!navigation) {
@@ -568,14 +638,68 @@ async function logoutInPage(): Promise<void> {
   clickElement(logoutButton); // This will trigger the click handler which schedules the reload after logout
 }
 
+async function openPreferencesInPage(): Promise<void> {
+  const settingsButton = await waitForElement(findSettingsButton);
+  if (!settingsButton) {
+    return;
+  }
+
+  clickElement(settingsButton);
+
+  const preferencesItem = await waitForElement(findPreferencesMenuItem);
+  if (!preferencesItem) {
+    return;
+  }
+
+  clickElement(preferencesItem);
+}
+
+async function openHelpCenterInPage(): Promise<void> {
+  const settingsButton = await waitForElement(findSettingsButton);
+  if (!settingsButton) {
+    return;
+  }
+
+  clickElement(settingsButton);
+
+  const helpItem = await waitForElement(findHelpMenuItem);
+  if (!helpItem) {
+    return;
+  }
+
+  clickElement(helpItem);
+}
+
+function handleGlobalF1Shortcut(event: Event): void {
+  const keyEvent = event as KeyboardEvent;
+  if (!keyEvent || keyEvent.key !== "F1") {
+    return;
+  }
+
+  keyEvent.preventDefault();
+  keyEvent.stopPropagation();
+  keyEvent.stopImmediatePropagation?.();
+
+  openHelpCenterInPage().catch(() => {});
+}
+
 window.addEventListener("DOMContentLoaded", () => {
   trackLatestMessagePreview();
 
+  window.addEventListener("keydown", handleGlobalF1Shortcut, true);
   document.addEventListener("keydown", handleDocumentKeydownForLogout, true);
   document.addEventListener("click", handleDocumentClickForLogout, true);
 
   ipcRenderer.on("host:navigate-to-conversation", (_event, payload) => {
     navigateToConversationInPage(payload);
+  });
+
+  ipcRenderer.on("host:open-preferences", () => {
+    openPreferencesInPage().catch(() => {});
+  });
+
+  ipcRenderer.on("host:open-help-center", () => {
+    openHelpCenterInPage().catch(() => {});
   });
 
   ipcRenderer.on("host:log-out", () => {

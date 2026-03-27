@@ -18,6 +18,8 @@ Poodol solves this by opening Messenger directly, providing a focused desktop ch
 - **Messenger first**: Loads Facebook Messages directly in a desktop window on start.
 - **Native notifications**: Receive desktop notifications when new messages arrive. Clicking a notification opens the corresponding conversation. (Notifications work while the app is running)
 - **Unread message counter**: Display the number of unread messages on the dock icon (macOS & Linux).
+- **Native menu integration**: Access common actions from the app menu.
+- **Keyboard shortcuts**: Do common actions quickly with keyboard shortcuts.
 
 ## Disclaimer
 
