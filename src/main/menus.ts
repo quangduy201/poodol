@@ -59,7 +59,13 @@ async function navigateFocusedWindow(url: string): Promise<void> {
     return;
   }
 
-  await safeLoadUrl(focusedWindow, url);
+  try {
+    await safeLoadUrl(focusedWindow, url);
+  } catch (error) {
+    if (ENVIRONMENT.IS_DEVELOPMENT) {
+      console.error("Failed to navigate focused window to URL:", error);
+    }
+  }
 }
 
 function requestLogoutFocusedWindow(): void {

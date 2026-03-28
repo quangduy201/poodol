@@ -64,8 +64,8 @@ export function openInDefaultBrowserIfSupported(urlString: string): void {
 
 export function openNewWindow(url: string): void {
   const newWin = new BrowserWindow({
-    width: 1280,
-    height: 820,
+    width: 1200,
+    height: 800,
     webPreferences: {
       preload: path.join(__dirname, "..", "preload", "preload.js"),
       contextIsolation: true,
