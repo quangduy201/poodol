@@ -52,7 +52,14 @@
             "arm64"
           ]
         }
-      ]
+      ],
+      "hardenedRuntime": true,
+      "entitlements": "assets/entitlements.mac.plist",
+      "entitlementsInherit": "assets/entitlements.mac.plist",
+      "extendInfo": {
+        "NSCameraUsageDescription": "Poodol needs access to the camera for video calls.",
+        "NSMicrophoneUsageDescription": "Poodol needs access to the microphone for voice and video calls."
+      }
     },
     "win": {
       "icon": "assets/icons/icon.ico",

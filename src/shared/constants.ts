@@ -70,3 +70,11 @@ export const ALLOWED_MAIN_WINDOW_PATH_PREFIXES = [
   "/two_step_verification",
   "/checkpoint",
 ];
+export const TRUSTED_PERMISSION_HOST_SUFFIXES = [
+  "facebook.com",
+  ".facebook.com",
+  "fbsbx.com",
+  ".fbsbx.com",
+  "fbcdn.net",
+  ".fbcdn.net",
+];

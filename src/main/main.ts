@@ -1,13 +1,26 @@
-import { app, BrowserWindow, Notification } from "electron";
+import {
+  app,
+  BrowserWindow,
+  Notification,
+  session,
+  systemPreferences,
+} from "electron";
 
 import { setMainWindow } from "./app-context";
 import { setupIpcHandlers } from "./ipc-handlers";
 import { setupMenus } from "./menus";
 import { updateDockAndTaskbarBadge } from "./notification-manager";
+import { configureSessionSecurity } from "./security";
 import { createMainWindow } from "./window-manager";
 import { PLATFORM } from "../shared/constants";
 
 app.whenReady().then(async () => {
+  // Configure session security (permissions)
+  configureSessionSecurity({
+    session: session.defaultSession,
+    systemPreferences,
+  });
+
   // Create main window
   const mainWindow = await createMainWindow();
   if (mainWindow) {

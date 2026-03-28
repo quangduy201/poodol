@@ -4,6 +4,8 @@ import path from "path";
 import {
   ALLOWED_IN_APP_HOSTS,
   ALLOWED_MAIN_WINDOW_PATH_PREFIXES,
+  PLATFORM,
+  TRUSTED_PERMISSION_HOST_SUFFIXES,
   URLS,
 } from "../shared/constants";
 import { parseHttpUrl } from "../shared/utils";
@@ -37,6 +39,17 @@ function isAllowedInMainWindow(urlString: string): boolean {
   // Allow endpoints with specific path prefixes
   return ALLOWED_MAIN_WINDOW_PATH_PREFIXES.some((prefix) =>
     pathname.startsWith(prefix),
+  );
+}
+
+function isTrustedPermissionOrigin(origin: string): boolean {
+  const parsedOrigin = parseHttpUrl(origin);
+  if (!parsedOrigin) {
+    return false;
+  }
+
+  return TRUSTED_PERMISSION_HOST_SUFFIXES.some((suffix) =>
+    parsedOrigin.hostname.endsWith(suffix),
   );
 }
 
@@ -113,4 +126,70 @@ export function enforceUrlPolicy(
     openInDefaultBrowserIfSupported(url);
     return { action: "deny" };
   });
+}
+
+interface SessionSecurityConfig {
+  session: Electron.Session;
+  systemPreferences: Electron.SystemPreferences;
+}
+
+export function configureSessionSecurity({
+  session,
+  systemPreferences,
+}: SessionSecurityConfig): void {
+  session.setPermissionCheckHandler(
+    (_webContents, permission, requestingOrigin) => {
+      if (
+        permission === "notifications" ||
+        permission === "media" /* camera and microphone access */
+      ) {
+        // Only allow these permissions for trusted origins
+        const isTrusted = isTrustedPermissionOrigin(requestingOrigin);
+        return isTrusted;
+      }
+
+      // Deny all other permissions by default
+      return false;
+    },
+  );
+
+  session.setPermissionRequestHandler(
+    (webContents, permission, callback, details) => {
+      const requestingOrigin = details.requestingUrl || webContents.getURL();
+      const isTrustedOrigin = isTrustedPermissionOrigin(requestingOrigin);
+
+      if (permission === "notifications") {
+        callback(isTrustedOrigin);
+        return;
+      }
+
+      if (permission === "media") {
+        if (!isTrustedOrigin) {
+          callback(false);
+          return;
+        }
+
+        if (PLATFORM.IS_MAC) {
+          const mediaTypes = ["microphone", "camera"] as const;
+
+          for (const mediaType of mediaTypes) {
+            const status = systemPreferences.getMediaAccessStatus(mediaType);
+            if (status !== "granted") {
+              const granted = systemPreferences.askForMediaAccess(mediaType);
+              if (!granted) {
+                callback(false);
+                return;
+              }
+            }
+          }
+        }
+
+        callback(true);
+        return;
+      }
+
+      // Deny all other permissions by default
+      callback(false);
+    },
+  );
 }
