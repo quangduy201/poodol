@@ -1,7 +1,7 @@
 {
   "name": "poodol",
   "version": "1.0.0",
-  "description": "Unofficial desktop wrapper for Facebook Messenger Web with extra features. Not affiliated with Meta.",
+  "description": "Facebook Messenger desktop application with extra features.",
   "productName": "Poodol",
   "license": "MIT",
   "author": "Quang Duy <dinhduy2012003@gmail.com> (https://quangduy.id.vn)",
@@ -53,6 +53,7 @@
           ]
         }
       ],
+      "hardenedRuntime": false,
       "entitlements": "assets/entitlements.mac.plist",
       "entitlementsInherit": "assets/entitlements.mac.plist",
       "extendInfo": {
@@ -90,8 +91,8 @@
       "category": "Network",
       "executableName": "poodol",
       "maintainer": "Quang Duy <dinhduy2012003@gmail.com>",
-      "synopsis": "Desktop wrapper for Facebook Messenger Web.",
-      "description": "Unofficial desktop wrapper for Facebook Messenger Web with extra features."
+      "synopsis": "Facebook Messenger desktop application with extra features.",
+      "description": "Poodol is an unofficial desktop wrapper for Facebook Messenger Web with extra features."
     }
   }
 }
