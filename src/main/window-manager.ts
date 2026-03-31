@@ -121,6 +121,9 @@ export async function createMainWindow(): Promise<BrowserWindow | null> {
   // Setup state persistence
   setupWindowStatePersistence(mainWindow, savedState.isMaximized);
 
+  // Setup User-Agent for main window
+  setupUserAgent(mainWindow);
+
   // Setup window lifecycle and navigation
   setupWindowLifecycle(mainWindow);
   setupWindowNavigation(mainWindow);
@@ -156,6 +159,15 @@ function setupWindowStatePersistence(
   if (isMaximized) {
     mainWindow.maximize();
   }
+}
+
+function setupUserAgent(mainWindow: BrowserWindow): void {
+  const userAgent = mainWindow.webContents.getUserAgent();
+  const cleanedUA = userAgent
+    .replace(/Poodol\/\S+\s?/g, "")
+    .replace(/Electron\/\S+\s?/g, "")
+    .trim();
+  mainWindow.webContents.setUserAgent(cleanedUA);
 }
 
 function setupWindowLifecycle(mainWindow: BrowserWindow): void {
