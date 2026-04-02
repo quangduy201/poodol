@@ -21,15 +21,15 @@ app.whenReady().then(async () => {
     systemPreferences,
   });
 
+  // Setup menus and IPC handlers
+  setupMenus();
+  setupIpcHandlers();
+
   // Create main window
   const mainWindow = await createMainWindow();
   if (mainWindow) {
     setMainWindow(mainWindow);
   }
-
-  // Setup menus and IPC handlers
-  setupMenus();
-  setupIpcHandlers();
 
   // Trigger notification permission request early
   Notification.isSupported();

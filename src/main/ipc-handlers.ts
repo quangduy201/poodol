@@ -3,6 +3,7 @@ import { ipcMain } from "electron";
 import {
   getMainWindow,
   setUserLoggedIn,
+  setStartedOnLoginPage,
   isNormalizingUrl,
   setNormalizingMainWindowUrl,
 } from "./app-context";
@@ -85,7 +86,8 @@ export function setupIpcHandlers(): void {
     if (!mainWindow || mainWindow.isDestroyed()) {
       return;
     }
-    setUserLoggedIn(false); // Update menu state
+    setUserLoggedIn(false);
+    setStartedOnLoginPage(true);
     await safeLoadUrl(mainWindow, URLS.LOGIN_URL);
   });
 }
