@@ -242,7 +242,8 @@ function setupWindowNavigation(mainWindow: BrowserWindow): void {
       !url.includes("/login") &&
       !url.includes("/messages/") &&
       !url.includes("/checkpoint") &&
-      !url.includes("/two_step_verification")
+      !url.includes("/two_step_verification") &&
+      !url.includes("/auth_platform")
     ) {
       setStartedOnLoginPage(false);
       setUserLoggedIn(true);

@@ -68,6 +68,7 @@ export const ALLOWED_MAIN_WINDOW_PATH_PREFIXES = [
   "/login.php",
   "/logout.php",
   "/two_step_verification",
+  "/auth_platform",
   "/checkpoint",
 ];
 export const TRUSTED_PERMISSION_HOST_SUFFIXES = [
