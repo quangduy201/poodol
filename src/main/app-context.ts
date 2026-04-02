@@ -1,5 +1,6 @@
 import { BrowserWindow } from "electron";
 import { EventEmitter } from "events";
+import { getLoggedInState, saveLoggedInState } from "./config-manager";
 
 /**
  * Centralized Application State Management
@@ -20,12 +21,13 @@ export function getMainWindow(): BrowserWindow | null {
 }
 
 // Login State
-let isUserLoggedIn = false;
+let isUserLoggedIn = getLoggedInState();
 let startedOnLoginPage = false;
 
 export function setUserLoggedIn(loggedIn: boolean): void {
   if (isUserLoggedIn !== loggedIn) {
     isUserLoggedIn = loggedIn;
+    saveLoggedInState(loggedIn);
     stateEmitter.emit("userLoggedInChanged", loggedIn);
   }
 }

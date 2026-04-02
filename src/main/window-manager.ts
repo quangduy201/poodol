@@ -4,6 +4,7 @@ import path from "path";
 
 import {
   setUserLoggedIn,
+  getUserLoggedIn,
   setStartedOnLoginPage,
   getStartedOnLoginPage,
   setMainWindow,
@@ -97,7 +98,7 @@ export async function createMainWindow(): Promise<BrowserWindow | null> {
     icon: fs.existsSync(iconPath) ? iconPath : undefined,
     autoHideMenuBar: true,
     backgroundColor: WINDOW.BACKGROUND_COLOR,
-    show: false, // Don't show window until correct URL is loaded
+    show: true,
     webPreferences: {
       preload: path.join(__dirname, "..", "preload", "preload.js"),
       contextIsolation: WEB_PREFERENCES.CONTEXT_ISOLATION,
@@ -128,17 +129,20 @@ export async function createMainWindow(): Promise<BrowserWindow | null> {
   setupWindowLifecycle(mainWindow);
   setupWindowNavigation(mainWindow);
 
-  // Try to load login page to check if user is logged in
-  setStartedOnLoginPage(true);
+  // Load the appropriate URL based on saved login state
+  const isLoggedIn = getUserLoggedIn();
+  const initialUrl = isLoggedIn ? URLS.MESSAGES_INBOX_URL : URLS.LOGIN_URL;
+  setStartedOnLoginPage(!isLoggedIn);
+
   try {
-    await safeLoadUrl(mainWindow, URLS.LOGIN_URL);
+    await safeLoadUrl(mainWindow, initialUrl);
   } catch (error) {
     if (ENVIRONMENT.IS_DEVELOPMENT) {
-      console.error("Failed to load login URL:", error);
+      console.error("Failed to load initial URL:", error);
     }
     dialog.showErrorBox(
-      "Login Error",
-      "Failed to load the login page. Please check your internet connection.",
+      "Navigation Error",
+      "Failed to load the page. Please check your internet connection.",
     );
   }
 
@@ -212,23 +216,19 @@ function setupWindowNavigation(mainWindow: BrowserWindow): void {
           // Login page loaded normally, user is not logged in
           setStartedOnLoginPage(true);
           setUserLoggedIn(false);
-          mainWindow.show();
         }
       } catch (error) {
         if (ENVIRONMENT.IS_DEVELOPMENT) {
           console.error("Failed to check login status:", error);
         }
         dialog.showErrorBox(
-          "Error",
-          "Failed to verify login status. Please refresh the page.",
+          "Failed to Verify Login Status",
+          "If the problem persists, try clearing the browser cache by going to Help > Clear Browsing Data and Reset App.",
         );
         // Assume user is not logged in if we can't check content
         setStartedOnLoginPage(true);
         setUserLoggedIn(false);
-        mainWindow.show();
       }
-    } else if (currentURL === URLS.MESSAGES_INBOX_URL) {
-      mainWindow.show();
     }
     mainWindow.webContents.send("host:started");
   });
@@ -242,7 +242,8 @@ function setupWindowNavigation(mainWindow: BrowserWindow): void {
       !url.includes("/login") &&
       !url.includes("/messages/") &&
       !url.includes("/checkpoint") &&
-      !url.includes("/two_step_verification")
+      !url.includes("/two_step_verification") &&
+      !url.includes("/auth_platform")
     ) {
       setStartedOnLoginPage(false);
       setUserLoggedIn(true);
