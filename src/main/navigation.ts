@@ -1,4 +1,5 @@
 import { BrowserWindow, dialog } from "electron";
+
 import { ENVIRONMENT } from "../shared/constants";
 
 export async function safeLoadUrl(

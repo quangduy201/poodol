@@ -2,8 +2,6 @@ import { ipcMain } from "electron";
 
 import {
   getMainWindow,
-  setUserLoggedIn,
-  setStartedOnLoginPage,
   isNormalizingUrl,
   setNormalizingMainWindowUrl,
 } from "./app-context";
@@ -79,15 +77,5 @@ export function setupIpcHandlers(): void {
 
   ipcMain.on("host:unread-count", (_event, unreadRowCount) => {
     updateDockAndTaskbarBadge(unreadRowCount || 0);
-  });
-
-  ipcMain.on("host:logout-initiated", async () => {
-    const mainWindow = getMainWindow();
-    if (!mainWindow || mainWindow.isDestroyed()) {
-      return;
-    }
-    setUserLoggedIn(false);
-    setStartedOnLoginPage(true);
-    await safeLoadUrl(mainWindow, URLS.LOGIN_URL);
   });
 }

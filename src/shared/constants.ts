@@ -63,13 +63,9 @@ export const PREFIXES = {
 
 export const ALLOWED_IN_APP_HOSTS = ["facebook.com", "www.facebook.com"];
 export const ALLOWED_MAIN_WINDOW_PATH_PREFIXES = [
-  "/messages/e2ee/t",
-  "/messages/t",
-  "/login.php",
-  "/logout.php",
-  "/two_step_verification",
-  "/auth_platform",
-  "/checkpoint",
+  "/messages",
+  "/login",
+  "/logout",
 ];
 export const TRUSTED_PERMISSION_HOST_SUFFIXES = [
   "facebook.com",

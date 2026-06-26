@@ -561,67 +561,6 @@ function findLogoutMenuButton(): Element | null {
   return allVisibleButtons[allVisibleButtons.length - 1] || null;
 }
 
-let logoutReloadTimeoutId: NodeJS.Timeout | null = null;
-
-function scheduleMessagesReloadAfterLogout(delayMs = 700): void {
-  if (logoutReloadTimeoutId !== null) {
-    clearTimeout(logoutReloadTimeoutId);
-  }
-
-  logoutReloadTimeoutId = setTimeout(() => {
-    logoutReloadTimeoutId = null;
-    ipcRenderer.send("host:logout-initiated");
-  }, delayMs);
-}
-
-function isLogoutButtonInteraction(node: unknown): boolean {
-  if (!(node instanceof Element)) {
-    return false;
-  }
-
-  const button = node.closest('div[role="button"]');
-  if (!button) {
-    return false;
-  }
-
-  const logoutButton = findLogoutMenuButton();
-  if (!logoutButton) {
-    return false;
-  }
-
-  return (
-    button === logoutButton ||
-    logoutButton.contains(button) ||
-    button.contains(logoutButton)
-  );
-}
-
-function handleDocumentClickForLogout(event: Event): void {
-  if (!isLogoutButtonInteraction((event as MouseEvent)?.target)) {
-    return;
-  }
-
-  scheduleMessagesReloadAfterLogout();
-}
-
-function handleDocumentKeydownForLogout(event: Event): void {
-  if (!event) {
-    return;
-  }
-
-  const keyEvent = event as KeyboardEvent;
-  const isActivationKey = keyEvent.key === "Enter" || keyEvent.key === " ";
-  if (!isActivationKey) {
-    return;
-  }
-
-  if (!isLogoutButtonInteraction(keyEvent.target)) {
-    return;
-  }
-
-  scheduleMessagesReloadAfterLogout();
-}
-
 async function logoutInPage(): Promise<void> {
   const profileButton = await waitForElement(findProfileMenuButton);
   if (!profileButton) {
@@ -635,7 +574,7 @@ async function logoutInPage(): Promise<void> {
     return;
   }
 
-  clickElement(logoutButton); // This will trigger the click handler which schedules the reload after logout
+  clickElement(logoutButton);
 }
 
 async function openPreferencesInPage(): Promise<void> {
@@ -687,8 +626,6 @@ window.addEventListener("DOMContentLoaded", () => {
   trackLatestMessagePreview();
 
   window.addEventListener("keydown", handleGlobalF1Shortcut, true);
-  document.addEventListener("keydown", handleDocumentKeydownForLogout, true);
-  document.addEventListener("click", handleDocumentClickForLogout, true);
 
   ipcRenderer.on("host:navigate-to-conversation", (_event, payload) => {
     navigateToConversationInPage(payload);

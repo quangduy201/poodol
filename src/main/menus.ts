@@ -10,13 +10,13 @@ import {
 import fs from "fs";
 import path from "path";
 
-import { safeLoadUrl } from "./navigation";
-import { ENVIRONMENT, PLATFORM, URLS } from "../shared/constants";
 import {
   getUserLoggedIn,
   getMainWindow,
   onUserLoggedInChanged,
 } from "./app-context";
+import { safeLoadUrl } from "./navigation";
+import { ENVIRONMENT, PLATFORM, URLS } from "../shared/constants";
 
 const NEW_MESSAGE_PATH = "/messages/new";
 
@@ -137,15 +137,6 @@ async function clearBrowsingDataAndReset(): Promise<void> {
     const configFilePath = path.join(app.getPath("userData"), "config.json");
     if (fs.existsSync(configFilePath)) {
       fs.unlinkSync(configFilePath);
-    }
-
-    // Delete window state file
-    const windowStateFilePath = path.join(
-      app.getPath("userData"),
-      "window-state.json",
-    );
-    if (fs.existsSync(windowStateFilePath)) {
-      fs.unlinkSync(windowStateFilePath);
     }
 
     // Relaunch the app

@@ -15,6 +15,8 @@ import { createMainWindow } from "./window-manager";
 import { PLATFORM } from "../shared/constants";
 
 app.whenReady().then(async () => {
+  app.setAppUserModelId("com.poodol.desktop");
+
   // Configure session security (permissions)
   configureSessionSecurity({
     session: session.defaultSession,
