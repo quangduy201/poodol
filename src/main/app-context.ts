@@ -1,5 +1,6 @@
 import { BrowserWindow } from "electron";
 import { EventEmitter } from "events";
+
 import { getLoggedInState, saveLoggedInState } from "./config-manager";
 
 /**
