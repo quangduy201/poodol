@@ -114,37 +114,128 @@ function getConversationPathFromElement(element: Element | null): string {
   return match ? match[1] : "";
 }
 
-function getAvatarUrlFromElement(element: Element | null): string {
+async function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.crossOrigin = "anonymous";
+    image.onload = () => resolve(image);
+    image.onerror = () =>
+      reject(new Error(`Failed to load avatar image: ${src}`));
+    image.src = src;
+  });
+}
+async function buildCombinedAvatarDataUrl(
+  imageUrls: string[],
+): Promise<string> {
+  if (imageUrls.length === 0) {
+    return "";
+  }
+
+  if (imageUrls.length === 1) {
+    return imageUrls[0];
+  }
+
+  const size = 128;
+  const loadedImages: HTMLImageElement[] = [];
+  for (const url of imageUrls.slice(0, 2)) {
+    try {
+      const image = await loadImage(url);
+      loadedImages.push(image);
+    } catch {
+      // Ignore load failures and continue with available images
+    }
+  }
+
+  if (loadedImages.length === 0) {
+    return imageUrls[0];
+  }
+
+  if (loadedImages.length === 1) {
+    return imageUrls[0];
+  }
+
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    return imageUrls[0];
+  }
+  // Transparent canvas background
+  ctx.clearRect(0, 0, size, size);
+
+  const first = loadedImages[0];
+  const second = loadedImages[1];
+
+  const avatarSize = size * 0.72;
+
+  // Positions: second (background) at top-right, first (foreground) at bottom-left
+  const firstX = 0;
+  const firstY = size - avatarSize;
+  const secondX = size - avatarSize;
+  const secondY = 0;
+
+  const drawAvatarCircle = (
+    image: HTMLImageElement,
+    x: number,
+    y: number,
+    diameter: number,
+  ) => {
+    const centerX = x + diameter / 2;
+    const centerY = y + diameter / 2;
+    const radius = diameter / 2;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+    ctx.closePath();
+    ctx.clip();
+    ctx.drawImage(image, x, y, diameter, diameter);
+    ctx.restore();
+  };
+
+  // Draw background first, then overlay first image on top
+  drawAvatarCircle(second, secondX, secondY, avatarSize);
+  drawAvatarCircle(first, firstX, firstY, avatarSize);
+
+  return canvas.toDataURL("image/png");
+}
+
+async function getAvatarUrlFromElement(
+  element: Element | null,
+): Promise<string> {
   if (!element) {
     return "";
   }
 
-  const avatarCandidates = Array.from(
+  const avatarImages = Array.from(
     element.querySelectorAll(
       'a[href*="/messages/"] img[src], img[src*="fbcdn.net"]',
     ),
   );
 
-  for (const image of avatarCandidates) {
-    const src = (image.getAttribute("src") || "").trim();
-    if (!src) {
-      continue;
-    }
+  const validAvatarUrls = avatarImages
+    .map((image) => ({
+      src: (image.getAttribute("src") || "").trim(),
+      width: Number.parseInt(image.getAttribute("width") || "0", 10),
+      height: Number.parseInt(image.getAttribute("height") || "0", 10),
+    }))
+    .filter(
+      (entry) =>
+        entry.src &&
+        !entry.src.includes("emoji.php") &&
+        !(
+          (entry.width > 0 && entry.width < 24) ||
+          (entry.height > 0 && entry.height < 24)
+        ),
+    )
+    .map((entry) => entry.src);
 
-    if (src.includes("emoji.php")) {
-      continue;
-    }
-
-    const width = Number.parseInt(image.getAttribute("width") || "0", 10);
-    const height = Number.parseInt(image.getAttribute("height") || "0", 10);
-    if ((width > 0 && width < 24) || (height > 0 && height < 24)) {
-      continue;
-    }
-
-    return src;
+  if (validAvatarUrls.length >= 2) {
+    return await buildCombinedAvatarDataUrl(validAvatarUrls.slice(0, 2));
   }
 
-  return "";
+  return validAvatarUrls[0] || "";
 }
 
 interface UnreadSummary {
@@ -236,9 +327,9 @@ function getUnreadRows(): Element[] {
   return getThreadRows().filter((row) => isUnreadRow(row));
 }
 
-function extractPreviewFromThreadRow(
+async function extractPreviewFromThreadRow(
   row: Element | null,
-): MessagePreview | null {
+): Promise<MessagePreview | null> {
   if (!row) {
     return null;
   }
@@ -292,7 +383,7 @@ function extractPreviewFromThreadRow(
     text,
     conversationId: getConversationIdFromElement(row as Element),
     conversationPath: getConversationPathFromElement(row as Element),
-    avatarUrl: getAvatarUrlFromElement(row as Element),
+    avatarUrl: await getAvatarUrlFromElement(row as Element),
   };
 }
 
@@ -305,14 +396,14 @@ function countUnreadConversationRows(): number | null {
   return threadRows.filter((row) => isUnreadRow(row)).length;
 }
 
-function findBestThreadRow(): MessagePreview | null {
+async function findBestThreadRow(): Promise<MessagePreview | null> {
   const unreadRows = getUnreadRows();
   for (const row of unreadRows) {
     if (isMutedRow(row)) {
       continue;
     }
 
-    const preview = extractPreviewFromThreadRow(row);
+    const preview = await extractPreviewFromThreadRow(row);
     if (preview) {
       return preview;
     }
@@ -325,14 +416,14 @@ function trackLatestMessagePreview(): void {
   let lastSentKey = "";
   let lastUnreadRowCount = -1;
 
-  const pushPreview = () => {
+  const pushPreview = async () => {
     const unreadRowCount = countUnreadConversationRows();
     if (unreadRowCount !== null && unreadRowCount !== lastUnreadRowCount) {
       lastUnreadRowCount = unreadRowCount;
       ipcRenderer.send("host:unread-count", unreadRowCount);
     }
 
-    const preview = findBestThreadRow();
+    const preview = await findBestThreadRow();
     if (!preview) {
       return;
     }

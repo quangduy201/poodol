@@ -62,6 +62,10 @@ function buildConversationKey(preview: MessagePreview): string {
   return sender ? `${PREFIXES.CONVERSATION_KEY_SENDER}${sender}` : "";
 }
 
+function isDataUrl(url: string): boolean {
+  return /^data:image\/[a-zA-Z0-9.+-]+;base64,/.test(url);
+}
+
 // Avatar management
 export async function getAvatarIcon(
   avatarUrl: string,
@@ -75,14 +79,21 @@ export async function getAvatarIcon(
   }
 
   try {
-    const response = await fetch(avatarUrl);
-    if (!response.ok) {
-      avatarIconCache.set(avatarUrl, null);
-      return null;
+    let icon: Electron.NativeImage | null = null;
+
+    if (isDataUrl(avatarUrl)) {
+      icon = nativeImage.createFromDataURL(avatarUrl);
+    } else {
+      const response = await fetch(avatarUrl);
+      if (!response.ok) {
+        avatarIconCache.set(avatarUrl, null);
+        return null;
+      }
+
+      const buffer = Buffer.from(await response.arrayBuffer());
+      icon = nativeImage.createFromBuffer(buffer);
     }
 
-    const buffer = Buffer.from(await response.arrayBuffer());
-    const icon = nativeImage.createFromBuffer(buffer);
     if (!icon || icon.isEmpty()) {
       avatarIconCache.set(avatarUrl, null);
       return null;
