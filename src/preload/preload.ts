@@ -76,6 +76,10 @@ function getRenderedText(node: Node | null): string {
     .trim();
 }
 
+function normalizeReactionPreviewText(text: string): string {
+  return text.replace(/\(y\)/gi, "👍").replace(/❤/g, "❤️");
+}
+
 function getConversationIdFromElement(element: Element | null): string {
   if (!element) {
     return "";
@@ -275,7 +279,9 @@ function extractPreviewFromThreadRow(
     }
   }
 
-  const text = messageText || textNodes[1] || textNodes[0] || "";
+  const text = normalizeReactionPreviewText(
+    messageText || textNodes[1] || textNodes[0] || "",
+  );
 
   if (!sender && !text) {
     return null;
