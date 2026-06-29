@@ -22,6 +22,8 @@ interface NavigatePayload {
   conversationId?: string;
 }
 
+const pendingNavigationPayloads: NavigatePayload[] = [];
+
 function getRenderedText(node: Node | null): string {
   if (!node) {
     return "";
@@ -353,6 +355,24 @@ function trackLatestMessagePreview(): void {
 
 function navigateToConversationInPage(payload: NavigatePayload | null): void {
   if (!payload || typeof payload !== "object") {
+    return;
+  }
+
+  if (document.readyState === "loading") {
+    pendingNavigationPayloads.push(payload);
+    window.addEventListener(
+      "DOMContentLoaded",
+      () => {
+        while (pendingNavigationPayloads.length > 0) {
+          const queuedPayload = pendingNavigationPayloads.shift();
+          if (!queuedPayload) {
+            continue;
+          }
+          navigateToConversationInPage(queuedPayload);
+        }
+      },
+      { once: true },
+    );
     return;
   }
 
