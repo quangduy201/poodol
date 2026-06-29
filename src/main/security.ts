@@ -45,6 +45,14 @@ function isAllowedInMainWindow(urlString: string): boolean {
 
   const pathname = parsedUrl.pathname;
 
+  // Allow logout redirect path that returns to the root with logout state
+  if (
+    pathname === "/" &&
+    parsedUrl.searchParams.get("stype") === "lo"
+  ) {
+    return true;
+  }
+
   // Allow endpoints with specific path prefixes
   return ALLOWED_MAIN_WINDOW_PATH_PREFIXES.some((prefix) =>
     pathname.startsWith(prefix),
