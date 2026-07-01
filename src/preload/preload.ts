@@ -739,26 +739,25 @@ function handleGlobalF1Shortcut(event: Event): void {
   openHelpCenterInPage().catch(() => {});
 }
 
+ipcRenderer.on("host:navigate-to-conversation", (_event, payload) => {
+  navigateToConversationInPage(payload);
+});
+
+ipcRenderer.on("host:open-preferences", () => {
+  openPreferencesInPage().catch(() => {});
+});
+
+ipcRenderer.on("host:open-help-center", () => {
+  openHelpCenterInPage().catch(() => {});
+});
+
+ipcRenderer.on("host:log-out", () => {
+  logoutInPage().catch(() => {});
+});
+
 window.addEventListener("DOMContentLoaded", () => {
   trackLatestMessagePreview();
-
   window.addEventListener("keydown", handleGlobalF1Shortcut, true);
-
-  ipcRenderer.on("host:navigate-to-conversation", (_event, payload) => {
-    navigateToConversationInPage(payload);
-  });
-
-  ipcRenderer.on("host:open-preferences", () => {
-    openPreferencesInPage().catch(() => {});
-  });
-
-  ipcRenderer.on("host:open-help-center", () => {
-    openHelpCenterInPage().catch(() => {});
-  });
-
-  ipcRenderer.on("host:log-out", () => {
-    logoutInPage().catch(() => {});
-  });
 });
 
 contextBridge.exposeInMainWorld("poodolHost", {

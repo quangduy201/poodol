@@ -41,11 +41,19 @@ function buildConversationKey(preview: MessagePreview): string {
     return "";
   }
 
+  // Prefer a stable conversation id key when possible. If a conversationPath
+  // is provided, try to extract the thread id from either
+  // /messages/e2ee/t/:id or /messages/t/:id so e2ee/non-e2ee variants dedupe.
   const conversationPath =
     typeof preview.conversationPath === "string"
       ? preview.conversationPath.trim()
       : "";
+
   if (conversationPath) {
+    const m = conversationPath.match(/\/messages\/(?:e2ee\/)?t\/([^/?#]+)/);
+    if (m && m[1]) {
+      return `${PREFIXES.CONVERSATION_KEY_ID}${m[1]}`;
+    }
     return conversationPath;
   }
 
