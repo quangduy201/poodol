@@ -1,16 +1,18 @@
-import { BrowserWindow, app, dialog } from "electron";
+import { BrowserWindow, dialog } from "electron";
 import fs from "fs";
 import path from "path";
 
 import {
   setUserLoggedIn,
+  getUserLoggedIn,
   setStartedOnLoginPage,
   getStartedOnLoginPage,
   setMainWindow,
 } from "./app-context";
+import { getWindowState, saveWindowState } from "./config-manager";
 import { normalizeMainWindowMessagesUrl } from "./ipc-handlers";
 import { safeLoadUrl } from "./navigation";
-import { enforceUrlPolicy } from "./security";
+import { enforceUrlPolicy, modifyUserAgent } from "./security";
 import {
   URLS,
   WINDOW,
@@ -23,69 +25,9 @@ import {
  * Handles main window creation, lifecycle, login state detection, and state persistence
  */
 
-interface WindowState {
-  width: number;
-  height: number;
-  x?: number;
-  y?: number;
-  isMaximized: boolean;
-}
-
-// Window state persistence
-function getStateFilePath(): string {
-  return path.join(app.getPath("userData"), "window-state.json");
-}
-
-function loadWindowState(): WindowState {
-  const filePath = getStateFilePath();
-  try {
-    const content = fs.readFileSync(filePath, "utf-8");
-    const parsed = JSON.parse(content) as Partial<WindowState>;
-    return {
-      width: Number.isFinite(parsed.width)
-        ? parsed.width!
-        : WINDOW.DEFAULT_WIDTH,
-      height: Number.isFinite(parsed.height)
-        ? parsed.height!
-        : WINDOW.DEFAULT_HEIGHT,
-      x: Number.isFinite(parsed.x) ? parsed.x : undefined,
-      y: Number.isFinite(parsed.y) ? parsed.y : undefined,
-      isMaximized: parsed.isMaximized === true,
-    };
-  } catch {
-    return {
-      width: WINDOW.DEFAULT_WIDTH,
-      height: WINDOW.DEFAULT_HEIGHT,
-      isMaximized: false,
-    };
-  }
-}
-
-function saveWindowState(window: BrowserWindow): void {
-  if (!window || window.isDestroyed()) {
-    return;
-  }
-
-  const bounds = window.getBounds();
-  const nextState: WindowState = {
-    x: bounds.x,
-    y: bounds.y,
-    width: bounds.width,
-    height: bounds.height,
-    isMaximized: window.isMaximized(),
-  };
-
-  const filePath = getStateFilePath();
-  try {
-    fs.writeFileSync(filePath, JSON.stringify(nextState, null, 2), "utf-8");
-  } catch {
-    // ignore state persistence errors
-  }
-}
-
 // Main window creation
 export async function createMainWindow(): Promise<BrowserWindow | null> {
-  const savedState = loadWindowState();
+  const savedState = getWindowState();
   const iconPath = path.join(__dirname, "..", "..", WINDOW.ICON_RELATIVE_PATH);
 
   const options: Electron.BrowserWindowConstructorOptions = {
@@ -97,7 +39,7 @@ export async function createMainWindow(): Promise<BrowserWindow | null> {
     icon: fs.existsSync(iconPath) ? iconPath : undefined,
     autoHideMenuBar: true,
     backgroundColor: WINDOW.BACKGROUND_COLOR,
-    show: false, // Don't show window until correct URL is loaded
+    show: true,
     webPreferences: {
       preload: path.join(__dirname, "..", "preload", "preload.js"),
       contextIsolation: WEB_PREFERENCES.CONTEXT_ISOLATION,
@@ -121,21 +63,27 @@ export async function createMainWindow(): Promise<BrowserWindow | null> {
   // Setup state persistence
   setupWindowStatePersistence(mainWindow, savedState.isMaximized);
 
+  // Setup User-Agent for main window
+  setupUserAgent(mainWindow);
+
   // Setup window lifecycle and navigation
   setupWindowLifecycle(mainWindow);
-  setupWindowNavigation(mainWindow);
+  setupWindowNavigation(mainWindow, true);
 
-  // Try to load login page to check if user is logged in
-  setStartedOnLoginPage(true);
+  // Load the appropriate URL based on saved login state
+  const isLoggedIn = getUserLoggedIn();
+  const initialUrl = isLoggedIn ? URLS.MESSAGES_INBOX_URL : URLS.LOGIN_URL;
+  setStartedOnLoginPage(!isLoggedIn);
+
   try {
-    await safeLoadUrl(mainWindow, URLS.LOGIN_URL);
+    await safeLoadUrl(mainWindow, initialUrl);
   } catch (error) {
     if (ENVIRONMENT.IS_DEVELOPMENT) {
-      console.error("Failed to load login URL:", error);
+      console.error("Failed to load initial URL:", error);
     }
     dialog.showErrorBox(
-      "Login Error",
-      "Failed to load the login page. Please check your internet connection.",
+      "Navigation Error",
+      "Failed to load the page. Please check your internet connection.",
     );
   }
 
@@ -146,16 +94,26 @@ function setupWindowStatePersistence(
   mainWindow: BrowserWindow,
   isMaximized: boolean,
 ): void {
-  // Attach listeners for state changes
-  mainWindow.on("resize", () => saveWindowState(mainWindow));
-  mainWindow.on("move", () => saveWindowState(mainWindow));
-  mainWindow.on("maximize", () => saveWindowState(mainWindow));
-  mainWindow.on("unmaximize", () => saveWindowState(mainWindow));
-  mainWindow.on("close", () => saveWindowState(mainWindow));
+  mainWindow.on("close", () => {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      return;
+    }
+    saveWindowState({
+      width: mainWindow.getBounds().width,
+      height: mainWindow.getBounds().height,
+      x: mainWindow.getBounds().x,
+      y: mainWindow.getBounds().y,
+      isMaximized: mainWindow.isMaximized(),
+    });
+  });
 
   if (isMaximized) {
     mainWindow.maximize();
   }
+}
+
+function setupUserAgent(mainWindow: BrowserWindow): void {
+  modifyUserAgent(mainWindow);
 }
 
 function setupWindowLifecycle(mainWindow: BrowserWindow): void {
@@ -173,14 +131,12 @@ function setupWindowLifecycle(mainWindow: BrowserWindow): void {
   });
 }
 
-function setupWindowNavigation(mainWindow: BrowserWindow): void {
+function setupWindowNavigation(
+  mainWindow: BrowserWindow,
+  isMainWindow: boolean,
+): void {
   // Enforce URL policy for main window (handles will-navigate, will-redirect, and setWindowOpenHandler)
-  enforceUrlPolicy(mainWindow, true);
-
-  // Handle child windows and apply URL policy to them
-  mainWindow.webContents.on("did-create-window", (childWindow) => {
-    enforceUrlPolicy(childWindow, false);
-  });
+  enforceUrlPolicy(mainWindow, isMainWindow);
 
   // Handle login page response to determine login status
   mainWindow.webContents.on("did-finish-load", async () => {
@@ -200,37 +156,29 @@ function setupWindowNavigation(mainWindow: BrowserWindow): void {
           // Login page loaded normally, user is not logged in
           setStartedOnLoginPage(true);
           setUserLoggedIn(false);
-          mainWindow.show();
         }
       } catch (error) {
         if (ENVIRONMENT.IS_DEVELOPMENT) {
           console.error("Failed to check login status:", error);
         }
         dialog.showErrorBox(
-          "Error",
-          "Failed to verify login status. Please refresh the page.",
+          "Failed to Verify Login Status",
+          "If the problem persists, try clearing the browser cache by going to Help > Clear Browsing Data and Reset App.",
         );
         // Assume user is not logged in if we can't check content
         setStartedOnLoginPage(true);
         setUserLoggedIn(false);
-        mainWindow.show();
       }
-    } else if (currentURL === URLS.MESSAGES_INBOX_URL) {
-      mainWindow.show();
     }
-    mainWindow.webContents.send("host:started");
   });
 
-  // Detect login completion and normalize messages URL
-  mainWindow.webContents.on("did-navigate", (_event, url) => {
+  // Detect login completion
+  mainWindow.webContents.on("will-navigate", (_event, url) => {
     // Detect successful login and redirect to messages
     if (
       getStartedOnLoginPage() &&
       url.startsWith("https://www.facebook.com") &&
-      !url.includes("/login") &&
-      !url.includes("/messages/") &&
-      !url.includes("/checkpoint") &&
-      !url.includes("/two_step_verification")
+      url.includes("?lsrc=")
     ) {
       setStartedOnLoginPage(false);
       setUserLoggedIn(true);
@@ -250,9 +198,40 @@ function setupWindowNavigation(mainWindow: BrowserWindow): void {
           "Failed to load the messages page after login. Please try again.",
         );
       });
-      return;
     }
+  });
 
+  // Detect logout completion
+  mainWindow.webContents.on("will-redirect", (_event, url) => {
+    // Detect logout and redirect to login
+    if (
+      !getStartedOnLoginPage() &&
+      url.startsWith("https://www.facebook.com") &&
+      url.includes("?stype=lo")
+    ) {
+      setStartedOnLoginPage(true);
+      setUserLoggedIn(false);
+      safeLoadUrl(mainWindow, URLS.LOGIN_URL).catch((error) => {
+        let message = error instanceof Error ? error.message : String(error);
+
+        if (message.includes("ERR_ABORTED") || message.includes("(-3)")) {
+          return; // Ignore aborted navigation, as it may be caused by our URL policy
+        }
+
+        if (ENVIRONMENT.IS_DEVELOPMENT) {
+          console.error("Failed to load login page after logout:", error);
+        }
+
+        dialog.showErrorBox(
+          "Error",
+          "Failed to load the messages page after login. Please try again.",
+        );
+      });
+    }
+  });
+
+  // Normalize messages URL
+  mainWindow.webContents.on("did-navigate", (_event, url) => {
     // Normalize specific conversation URLs to inbox
     normalizeMainWindowMessagesUrl(url).catch((error) => {
       let message = error instanceof Error ? error.message : String(error);

@@ -3,14 +3,20 @@ import {
   BrowserWindow,
   shell,
   MenuItemConstructorOptions,
+  app,
+  dialog,
+  session,
 } from "electron";
-import { safeLoadUrl } from "./navigation";
-import { ENVIRONMENT, PLATFORM, URLS } from "../shared/constants";
+import fs from "fs";
+import path from "path";
+
 import {
   getUserLoggedIn,
   getMainWindow,
   onUserLoggedInChanged,
 } from "./app-context";
+import { safeLoadUrl } from "./navigation";
+import { ENVIRONMENT, PLATFORM, URLS } from "../shared/constants";
 
 const NEW_MESSAGE_PATH = "/messages/new";
 
@@ -93,6 +99,55 @@ function openHelpCenterFocusedWindow(): void {
   }
 
   focusedWindow.webContents.send("host:open-help-center");
+}
+
+async function clearBrowsingDataAndReset(): Promise<void> {
+  const response = await dialog.showMessageBox({
+    type: "warning",
+    title: "Reset Application",
+    message: "Clear all browsing data and reset the app?",
+    detail:
+      "This will clear all cached data and reset the application to its initial state. The app will relaunch after this action. Are you sure you want to proceed?",
+    buttons: ["Cancel", "Reset"],
+    defaultId: 0,
+    cancelId: 0,
+  });
+
+  if (response.response !== 1) {
+    return; // User cancelled
+  }
+
+  const mainWindow = getMainWindow();
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+
+  try {
+    // Clear browsing data from session
+    session.defaultSession.clearCache();
+    session.defaultSession.clearStorageData();
+
+    // Delete cache directory
+    const cacheDir = path.join(app.getPath("userData"), "Cache");
+    if (fs.existsSync(cacheDir)) {
+      fs.rmSync(cacheDir, { recursive: true, force: true });
+    }
+
+    // Delete config file
+    const configFilePath = path.join(app.getPath("userData"), "config.json");
+    if (fs.existsSync(configFilePath)) {
+      fs.unlinkSync(configFilePath);
+    }
+
+    // Relaunch the app
+    app.relaunch();
+    app.quit();
+  } catch (error) {
+    if (ENVIRONMENT.IS_DEVELOPMENT) {
+      console.error("Failed to reset app:", error);
+    }
+    dialog.showErrorBox("Error", "Failed to reset the app. Please try again.");
+  }
 }
 
 function navigateFocusedWindowInPage(payload: unknown): void {
@@ -261,6 +316,13 @@ function buildMenuTemplate(): MenuItemConstructorOptions[] {
         label: "Report an Issue",
         click: async () => {
           await shell.openExternal(URLS.REPORT_ISSUE_URL);
+        },
+      },
+      { type: "separator" },
+      {
+        label: "Clear Browsing Data and Reset App",
+        click: async () => {
+          await clearBrowsingDataAndReset();
         },
       },
     ],

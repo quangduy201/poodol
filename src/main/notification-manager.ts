@@ -41,11 +41,19 @@ function buildConversationKey(preview: MessagePreview): string {
     return "";
   }
 
+  // Prefer a stable conversation id key when possible. If a conversationPath
+  // is provided, try to extract the thread id from either
+  // /messages/e2ee/t/:id or /messages/t/:id so e2ee/non-e2ee variants dedupe.
   const conversationPath =
     typeof preview.conversationPath === "string"
       ? preview.conversationPath.trim()
       : "";
+
   if (conversationPath) {
+    const m = conversationPath.match(/\/messages\/(?:e2ee\/)?t\/([^/?#]+)/);
+    if (m && m[1]) {
+      return `${PREFIXES.CONVERSATION_KEY_ID}${m[1]}`;
+    }
     return conversationPath;
   }
 
@@ -62,6 +70,10 @@ function buildConversationKey(preview: MessagePreview): string {
   return sender ? `${PREFIXES.CONVERSATION_KEY_SENDER}${sender}` : "";
 }
 
+function isDataUrl(url: string): boolean {
+  return /^data:image\/[a-zA-Z0-9.+-]+;base64,/.test(url);
+}
+
 // Avatar management
 export async function getAvatarIcon(
   avatarUrl: string,
@@ -75,14 +87,21 @@ export async function getAvatarIcon(
   }
 
   try {
-    const response = await fetch(avatarUrl);
-    if (!response.ok) {
-      avatarIconCache.set(avatarUrl, null);
-      return null;
+    let icon: Electron.NativeImage | null = null;
+
+    if (isDataUrl(avatarUrl)) {
+      icon = nativeImage.createFromDataURL(avatarUrl);
+    } else {
+      const response = await fetch(avatarUrl);
+      if (!response.ok) {
+        avatarIconCache.set(avatarUrl, null);
+        return null;
+      }
+
+      const buffer = Buffer.from(await response.arrayBuffer());
+      icon = nativeImage.createFromBuffer(buffer);
     }
 
-    const buffer = Buffer.from(await response.arrayBuffer());
-    const icon = nativeImage.createFromBuffer(buffer);
     if (!icon || icon.isEmpty()) {
       avatarIconCache.set(avatarUrl, null);
       return null;

@@ -15,21 +15,23 @@ import { createMainWindow } from "./window-manager";
 import { PLATFORM } from "../shared/constants";
 
 app.whenReady().then(async () => {
+  app.setAppUserModelId("com.poodol.desktop");
+
   // Configure session security (permissions)
   configureSessionSecurity({
     session: session.defaultSession,
     systemPreferences,
   });
 
+  // Setup menus and IPC handlers
+  setupMenus();
+  setupIpcHandlers();
+
   // Create main window
   const mainWindow = await createMainWindow();
   if (mainWindow) {
     setMainWindow(mainWindow);
   }
-
-  // Setup menus and IPC handlers
-  setupMenus();
-  setupIpcHandlers();
 
   // Trigger notification permission request early
   Notification.isSupported();

@@ -1,6 +1,7 @@
 import { shell, BrowserWindow } from "electron";
 import path from "path";
 
+import { getUserLoggedIn } from "./app-context";
 import {
   ALLOWED_IN_APP_HOSTS,
   ALLOWED_MAIN_WINDOW_PATH_PREFIXES,
@@ -16,7 +17,14 @@ function isAllowedInAppUrl(urlString: string): boolean {
     return false;
   }
 
-  return ALLOWED_IN_APP_HOSTS.some((host) => parsedUrl.hostname === host);
+  const hostname = parsedUrl.hostname;
+
+  return ALLOWED_IN_APP_HOSTS.some((host) => {
+    if (host.startsWith(".")) {
+      return hostname === host.slice(1) || hostname.endsWith(host);
+    }
+    return hostname === host;
+  });
 }
 
 function isAllowedInMainWindow(urlString: string): boolean {
@@ -29,10 +37,19 @@ function isAllowedInMainWindow(urlString: string): boolean {
     return false;
   }
 
+  // If user is not logged in, allow any URL under www.facebook.com (to allow login flow)
+  const isLoggedIn = getUserLoggedIn();
+  if (!isLoggedIn) {
+    return true;
+  }
+
   const pathname = parsedUrl.pathname;
 
-  // Allow root path
-  if (pathname === "/" || pathname === "") {
+  // Allow logout redirect path that returns to the root with logout state
+  if (
+    pathname === "/" &&
+    parsedUrl.searchParams.get("stype") === "lo"
+  ) {
     return true;
   }
 
@@ -73,7 +90,18 @@ export function openNewWindow(url: string): void {
       sandbox: true,
     },
   });
+  enforceUrlPolicy(newWin, false);
+  modifyUserAgent(newWin);
   newWin.loadURL(url);
+}
+
+export function modifyUserAgent(mainWindow: BrowserWindow): void {
+  const userAgent = mainWindow.webContents.getUserAgent();
+  const cleanedUA = userAgent
+    .replace(/Poodol\/\S+\s?/g, "")
+    .replace(/Electron\/\S+\s?/g, "")
+    .trim();
+  mainWindow.webContents.setUserAgent(cleanedUA);
 }
 
 export function enforceUrlPolicy(
@@ -83,7 +111,10 @@ export function enforceUrlPolicy(
   const webContents = browserWindow.webContents;
 
   webContents.on("will-navigate", (event, url) => {
-    if (!isMainWindow || isAllowedInMainWindow(url)) {
+    if (
+      (isMainWindow && isAllowedInMainWindow(url)) ||
+      (!isMainWindow && isAllowedInAppUrl(url))
+    ) {
       return;
     }
 
@@ -96,11 +127,31 @@ export function enforceUrlPolicy(
   });
 
   webContents.on("will-redirect", (event, url) => {
-    if (!isMainWindow || isAllowedInMainWindow(url)) {
+    if (
+      (isMainWindow && isAllowedInMainWindow(url)) ||
+      (!isMainWindow && isAllowedInAppUrl(url))
+    ) {
       return;
     }
 
     event.preventDefault();
+    if (isAllowedInAppUrl(url)) {
+      openNewWindow(url);
+    } else {
+      openInDefaultBrowserIfSupported(url);
+    }
+  });
+
+  webContents.on("did-navigate-in-page", (event, url) => {
+    if (
+      (isMainWindow && isAllowedInMainWindow(url)) ||
+      (!isMainWindow && isAllowedInAppUrl(url))
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    browserWindow.webContents.navigationHistory.goBack();
     if (isAllowedInAppUrl(url)) {
       openNewWindow(url);
     } else {
